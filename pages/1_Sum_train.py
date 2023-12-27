@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import random
 import numpy as np
-from enum import Enum
+import time
 
 st.set_page_config(
     page_title="Math Trainer - Addition",
@@ -36,6 +36,9 @@ if "page_show" not in st.session_state:
     
 if "answers" not in st.session_state:
     st.session_state.answers = []
+
+if "start_time" not in st.session_state:
+    st.session_state.start_time = None
         
 # --------------------------------- FUNCTIONS
 def QuestionAnswered(n1, n2, operation, correct_answer, user_answer=None):
@@ -64,6 +67,8 @@ def start_train():
 
 def submit():
     # save question
+    end_time = time.time()
+    st.session_state.question["time"] = end_time - st.session_state.start_time
     st.session_state.question["user_answer"] = st.session_state.answer    
     st.session_state.answers.append( st.session_state.question )
     st.session_state.answer = None
@@ -100,6 +105,7 @@ def show_question():
     
     question = st.session_state.question       
     st.write( f"{question['n1']} {question['operation']} {question['n2']}")
+    st.session_state.start_time = time.time()
     st.number_input('Type your answer', value=None, key="answer", on_change=submit, step=1, min_value=0, max_value=10000)
 
 def show_results():
@@ -110,15 +116,31 @@ def show_results():
         )
     
     df = pd.DataFrame(st.session_state.answers)
-    df["answered_correctly"] = np.where( df["correct_answer"] == df["user_answer"], "Ok", "Not ok" )
+    df["answered_correctly"] = np.where( df["correct_answer"] == df["user_answer"], "Yes", "No" )
     st.write(df)
     
-    correctly = df["answered_correctly"].value_counts().get("Ok", 0)
-    total = len(df)
+    value_counts = df["answered_correctly"].value_counts()
+    avg_time = df["time"].mean()
+    min_time = df["time"].min()
+    max_time = df["time"].max()
+    total_time = df["time"].sum()
+    number_questions = df.shape[0]
+    acuracy = value_counts.get("Yes", 0) / number_questions
     
     st.write(
         f"""
-        #### Correctly answered {correctly} of {total}
+        ## Acuracy: {acuracy}
+        Correctly: {value_counts.get("Yes", 0)} / {number_questions}
+          \n
+        Wrong: {value_counts.get("No", 0)} / {number_questions}
+          \n
+        Average time: {avg_time:.2f} seconds
+          \n
+        Minimum time: {min_time:.2f} seconds
+          \n
+        Maximum time: {max_time:.2f} seconds
+          \n
+        Total time: {total_time:.2f} seconds
         """
     )
     
