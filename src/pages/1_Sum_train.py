@@ -85,8 +85,8 @@ def start_train_number_questions():
     start_train()
     
 def run_after_x_minutes(minutes, setPage):
-    # seconds = minutes * 60
-    seconds = 5
+    seconds = minutes * 60
+    # seconds = 5
     for remaining_seconds in range(seconds, 0, -1):
         print(f"Remaining seconds: {remaining_seconds}")
         time.sleep(1)  # Sleep for 1 second
@@ -179,7 +179,17 @@ def show_question():
     )
     
     question = st.session_state.question       
-    st.write( f"{question['n1']} {question['operation']} {question['n2']}")
+    # st.write( f"{question['n1']} {question['operation']} {question['n2']}")
+        # {question['operation']} 
+        #   \n
+    st.markdown(
+        f"""
+        <div style="text-align: right">
+        {question['n1']} 
+          \n
+        {question['n2']}
+        </div>
+        """, unsafe_allow_html=True)
     st.session_state.start_time = time.time()
     st.number_input('Type your answer', value=None, key="answer", on_change=submit, step=1, min_value=0, max_value=10000)
 
