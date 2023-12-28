@@ -4,6 +4,7 @@ import pandas as pd
 import random
 import numpy as np
 import time
+import threading
 
 import os
 from supabase import create_client, Client
@@ -59,12 +60,48 @@ def summed_max_generator(max, operation):
         if correct_answer < max:
             yield QuestionAnswered(n1, n2, operation, correct_answer)
 
-def summed_max_list():
-    return [ next( summed_max_generator(st.session_state.settings_total_sum, OPERATION ) ) for n in range(st.session_state.settings_number_questions) ]
+def summed_max_list(number_questions):
+    return [ next( summed_max_generator(st.session_state.settings_total_sum, OPERATION ) ) for n in range(number_questions) ]
 
-def start_train():
-    new_train()
+
+def start_train_number_questions():
+    st.session_state.answers = []
+    # create new questions
+    st.session_state.questions = summed_max_list(st.session_state.settings_number_questions)
+    question = st.session_state.questions.pop()
+    st.session_state.question = question
     
+    start_train()
+    
+def run_after_x_minutes(minutes):
+    # seconds = minutes * 60
+    seconds = 5
+    for remaining_seconds in range(seconds, 0, -1):
+        print(f"Remaining seconds: {remaining_seconds}")
+        time.sleep(1)  # Sleep for 1 second
+        
+    # change page component shown
+    st.session_state.page_show = PAGE_RESULTS
+    show_results()
+    
+    
+
+# Example: Run my_function() after 5 minutes in a separate thread
+
+def start_train_timed():
+    st.session_state.answers = []
+    # create new questions
+    st.session_state.questions = summed_max_list(10_000)
+    question = st.session_state.questions.pop()
+    st.session_state.question = question
+    
+    # start timer
+    timer_thread = threading.Thread(target=run_after_x_minutes, args=(st.session_state.settings_time,))
+    timer_thread.start()
+    
+    start_train()
+    
+def start_train():
     data, count = supabase.table('Sessions').insert({
         "operation": "+", 
         "total_questions": st.session_state.settings_number_questions, 
@@ -76,17 +113,11 @@ def start_train():
     # change page component shown
     st.session_state.page_show = PAGE_TRAIN
 
+
+    
 def restart_train():
     # change page component shown
     st.session_state.page_show = PAGE_SETTINGS
-
-def new_train():
-    st.session_state.answers = []
-    # create new questions
-    st.session_state.questions = summed_max_list()
-    question = st.session_state.questions.pop()
-    st.session_state.question = question
-    
 
 def submit():
     # save question
@@ -107,6 +138,9 @@ def submit():
     else:
         # change page component shown
         st.session_state.page_show = PAGE_RESULTS
+        
+    print("st.session_state.answers")
+    print(st.session_state.answers)
 
 # --------------------- PAGE FUNCTIONS
             
@@ -116,17 +150,20 @@ def show_settings():
         ### Train settings
         """
     )
-
+    
     st.number_input('Total sum of operators', key="settings_total_sum", step=1, min_value=4, max_value=100000,)
     st.number_input('Number of questions', key="settings_number_questions", step=1, min_value=1, max_value=100000)
+    st.number_input('Total time', key="settings_time", step=1, min_value=1, max_value=100000,)
 
-    st.button('Start', on_click=start_train)
+    st.button('Start with limit of number of questions ', on_click=start_train_number_questions)
+    st.button('Start with limit of time', on_click=start_train_timed)
         
         
 def show_question():
     st.write(
-    """
+    f"""
     ### Answer quickly
+    {st.session_state.page_show}
     """
     )
     
@@ -141,50 +178,52 @@ def show_results():
         ## Train results
         """
         )
-    
-    df = pd.DataFrame(st.session_state.answers)
-    # df["answered_correctly"] = np.where( df["correct_answer"] == df["user_answer"], "Yes", "No" )
-    st.write(df)
-    
-    value_counts = df["answered_correctly"].value_counts()
-    time_mean = df["time"].mean()
-    time_min = df["time"].min()
-    time_max = df["time"].max()
-    time_total = df["time"].sum()
-    total_questions = df.shape[0]
-    acuracy = value_counts.get(True, 0) / total_questions
-    correctly = int(value_counts.get(True, 0))
-    wrong = int(value_counts.get(False, 0))
-                                  
-    data, count = supabase.table('Sessions').update({
-        "correctly": correctly,
-        "wrong": wrong,
-        "time_mean": time_mean,
-        "time_min":time_min,
-        "time_max": time_max,
-        "time_total": time_total,
-        "operation": "+",
-        "total_questions": total_questions,
-        "total_sum": st.session_state.settings_total_sum,
-        "acuracy": acuracy
-        }).eq('id', st.session_state.session_id).execute()
-    
-    st.write(
-        f"""
-        ## Acuracy: {acuracy}
-        Correctly: {correctly} of {total_questions}
-          \n
-        Wrong: {wrong} of {total_questions}
-          \n
-        Average time: {time_mean:.2f} seconds
-          \n
-        Minimum time: {time_min:.2f} seconds
-          \n
-        Maximum time: {time_max:.2f} seconds
-          \n
-        Total time: {time_total:.2f} seconds
-        """
-    )
+    if st.session_state.answers:
+        df = pd.DataFrame(st.session_state.answers)
+        # df["answered_correctly"] = np.where( df["correct_answer"] == df["user_answer"], "Yes", "No" )
+        st.write(df)
+        
+        value_counts = df["answered_correctly"].value_counts()
+        time_mean = df["time"].mean()
+        time_min = df["time"].min()
+        time_max = df["time"].max()
+        time_total = df["time"].sum()
+        total_questions = df.shape[0]
+        acuracy = value_counts.get(True, 0) / total_questions
+        correctly = int(value_counts.get(True, 0))
+        wrong = int(value_counts.get(False, 0))
+                                    
+        data, count = supabase.table('Sessions').update({
+            "correctly": correctly,
+            "wrong": wrong,
+            "time_mean": time_mean,
+            "time_min":time_min,
+            "time_max": time_max,
+            "time_total": time_total,
+            "operation": "+",
+            "total_questions": total_questions,
+            "total_sum": st.session_state.settings_total_sum,
+            "acuracy": acuracy
+            }).eq('id', st.session_state.session_id).execute()
+        
+        st.write(
+            f"""
+            ## Acuracy: {acuracy}
+            Correctly: {correctly} of {total_questions}
+            \n
+            Wrong: {wrong} of {total_questions}
+            \n
+            Average time: {time_mean:.2f} seconds
+            \n
+            Minimum time: {time_min:.2f} seconds
+            \n
+            Maximum time: {time_max:.2f} seconds
+            \n
+            Total time: {time_total:.2f} seconds
+            """
+        )
+    else:
+        st.write("""## Try again""")
     
     st.button('Restart', on_click=restart_train)
 
