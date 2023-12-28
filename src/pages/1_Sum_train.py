@@ -5,6 +5,9 @@ import random
 import numpy as np
 import time
 import threading
+from streamlit.runtime.scriptrunner import add_script_run_ctx
+from streamlit.runtime.scriptrunner.script_run_context import get_script_run_ctx
+
 
 import os
 from supabase import create_client, Client
@@ -13,10 +16,15 @@ url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
-st.set_page_config(
-    page_title="Math Trainer - Addition",
-    page_icon="💪",
-)
+if "first_run" not in st.session_state:
+    st.session_state.first_run = True
+
+if st.session_state.first_run:
+    st.set_page_config(
+        page_title="Math Trainer - Addition",
+        page_icon="💪",
+    )
+    st.session_state.first_run = False
 
 # --------------------------------- CONSTANS
 # NUMBER_QUESTIONS = 2
@@ -35,6 +43,8 @@ PAGE_RESULTS = 2
 # --------------------------------- STATE
 if "settings_total_sum" not in st.session_state:
     st.session_state.settings_total_sum = 25
+if "settings_total_sum" not in st.session_state:
+    st.session_state.settings_total_sum = 25
 
 if "settings_number_questions" not in st.session_state:
     st.session_state.settings_number_questions = 2
@@ -47,6 +57,7 @@ if "answers" not in st.session_state:
 
 if "start_time" not in st.session_state:
     st.session_state.start_time = None
+
         
 # --------------------------------- FUNCTIONS
 def QuestionAnswered(n1, n2, operation, correct_answer, user_answer=None):
@@ -73,7 +84,7 @@ def start_train_number_questions():
     
     start_train()
     
-def run_after_x_minutes(minutes):
+def run_after_x_minutes(minutes, setPage):
     # seconds = minutes * 60
     seconds = 5
     for remaining_seconds in range(seconds, 0, -1):
@@ -81,12 +92,12 @@ def run_after_x_minutes(minutes):
         time.sleep(1)  # Sleep for 1 second
         
     # change page component shown
-    st.session_state.page_show = PAGE_RESULTS
-    show_results()
+    setPage(PAGE_RESULTS)
+    st.rerun()
     
-    
-
-# Example: Run my_function() after 5 minutes in a separate thread
+def setPage(page):
+    st.session_state.page_show = page
+    # show_results() #it doesnt work because the tread doesnt have the state
 
 def start_train_timed():
     st.session_state.answers = []
@@ -96,8 +107,9 @@ def start_train_timed():
     st.session_state.question = question
     
     # start timer
-    timer_thread = threading.Thread(target=run_after_x_minutes, args=(st.session_state.settings_time,))
-    timer_thread.start()
+    t = threading.Thread( target=run_after_x_minutes, args=(st.session_state.settings_time, setPage), daemon=True )
+    add_script_run_ctx(t)
+    t.start()
     
     start_train()
     
@@ -163,7 +175,6 @@ def show_question():
     st.write(
     f"""
     ### Answer quickly
-    {st.session_state.page_show}
     """
     )
     
@@ -230,11 +241,10 @@ def show_results():
 # -------------------------------- PAGE
 
 st.write(
-    """
+    f"""
     # Addition
     """
 )
-
         
 # if st.session_state.page_show == PAGE_SETTINGS:
 #     show_settings()
