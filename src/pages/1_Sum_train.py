@@ -56,14 +56,21 @@ def summed_max_list():
     return [ next( summed_max_generator(st.session_state.settings_total_sum, OPERATION ) ) for n in range(st.session_state.settings_number_questions) ]
 
 def start_train():
+    new_train()
+    # change page component shown
+    st.session_state.page_show = PAGE_TRAIN
+
+def restart_train():
+    # change page component shown
+    st.session_state.page_show = PAGE_SETTINGS
+
+def new_train():
     st.session_state.answers = []
     # create new questions
     st.session_state.questions = summed_max_list()
     question = st.session_state.questions.pop()
     st.session_state.question = question
     
-    # change page component shown
-    st.session_state.page_show = PAGE_TRAIN
 
 def submit():
     # save question
@@ -127,6 +134,7 @@ def show_results():
     number_questions = df.shape[0]
     acuracy = value_counts.get("Yes", 0) / number_questions
     
+    
     st.write(
         f"""
         ## Acuracy: {acuracy}
@@ -144,6 +152,7 @@ def show_results():
         """
     )
     
+    st.button('Restart', on_click=restart_train)
 
 # -------------------------------- PAGE
 
