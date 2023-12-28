@@ -5,6 +5,13 @@ import random
 import numpy as np
 import time
 
+import os
+from supabase import create_client, Client
+
+url: str = os.environ.get("SUPABASE_URL")
+key: str = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
+
 st.set_page_config(
     page_title="Math Trainer - Addition",
     page_icon="💪",
@@ -57,6 +64,15 @@ def summed_max_list():
 
 def start_train():
     new_train()
+    
+    data, count = supabase.table('Sessions').insert({
+        "operation": "+", 
+        "total_questions": st.session_state.settings_number_questions, 
+        "total_sum": st.session_state.settings_total_sum 
+        }).execute()
+    
+    st.session_state.session_id = data[1][0]["id"]    
+    
     # change page component shown
     st.session_state.page_show = PAGE_TRAIN
 
@@ -76,9 +92,13 @@ def submit():
     # save question
     end_time = time.time()
     st.session_state.question["time"] = end_time - st.session_state.start_time
-    st.session_state.question["user_answer"] = st.session_state.answer    
+    st.session_state.question["user_answer"] = st.session_state.answer
+    st.session_state.question["session_id"] = st.session_state.session_id
+    st.session_state.question["answered_correctly"] = True if st.session_state.question["correct_answer"] == st.session_state.question["user_answer"] else False
     st.session_state.answers.append( st.session_state.question )
     st.session_state.answer = None
+    
+    data, count = supabase.table('Questions').insert(st.session_state.question).execute()
     
     # take another question
     if st.session_state.questions:
@@ -123,7 +143,7 @@ def show_results():
         )
     
     df = pd.DataFrame(st.session_state.answers)
-    df["answered_correctly"] = np.where( df["correct_answer"] == df["user_answer"], "Yes", "No" )
+    # df["answered_correctly"] = np.where( df["correct_answer"] == df["user_answer"], "Yes", "No" )
     st.write(df)
     
     value_counts = df["answered_correctly"].value_counts()
