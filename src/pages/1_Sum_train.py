@@ -147,28 +147,42 @@ def show_results():
     st.write(df)
     
     value_counts = df["answered_correctly"].value_counts()
-    avg_time = df["time"].mean()
-    min_time = df["time"].min()
-    max_time = df["time"].max()
-    total_time = df["time"].sum()
-    number_questions = df.shape[0]
-    acuracy = value_counts.get("Yes", 0) / number_questions
-    
+    time_mean = df["time"].mean()
+    time_min = df["time"].min()
+    time_max = df["time"].max()
+    time_total = df["time"].sum()
+    total_questions = df.shape[0]
+    acuracy = value_counts.get(True, 0) / total_questions
+    correctly = int(value_counts.get(True, 0))
+    wrong = int(value_counts.get(False, 0))
+                                  
+    data, count = supabase.table('Sessions').update({
+        "correctly": correctly,
+        "wrong": wrong,
+        "time_mean": time_mean,
+        "time_min":time_min,
+        "time_max": time_max,
+        "time_total": time_total,
+        "operation": "+",
+        "total_questions": total_questions,
+        "total_sum": st.session_state.settings_total_sum,
+        "acuracy": acuracy
+        }).eq('id', st.session_state.session_id).execute()
     
     st.write(
         f"""
         ## Acuracy: {acuracy}
-        Correctly: {value_counts.get("Yes", 0)} / {number_questions}
+        Correctly: {correctly} of {total_questions}
           \n
-        Wrong: {value_counts.get("No", 0)} / {number_questions}
+        Wrong: {wrong} of {total_questions}
           \n
-        Average time: {avg_time:.2f} seconds
+        Average time: {time_mean:.2f} seconds
           \n
-        Minimum time: {min_time:.2f} seconds
+        Minimum time: {time_min:.2f} seconds
           \n
-        Maximum time: {max_time:.2f} seconds
+        Maximum time: {time_max:.2f} seconds
           \n
-        Total time: {total_time:.2f} seconds
+        Total time: {time_total:.2f} seconds
         """
     )
     
